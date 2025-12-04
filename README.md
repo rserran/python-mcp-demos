@@ -14,9 +14,6 @@ A demonstration project showcasing Model Context Protocol (MCP) implementations 
   - [Inspect with MCP inspector](#inspect-with-mcp-inspector)
 - [Run local Agents <-> MCP](#run-local-agents---mcp)
 - [Deploy to Azure](#deploy-to-azure)
-  - [Azure account setup](#azure-account-setup)
-  - [Deploying with azd](#deploying-with-azd)
-  - [Costs](#costs)
 - [Deploy to Azure with private networking](#deploy-to-azure-with-private-networking)
 
 ## Getting started
@@ -253,7 +250,7 @@ You can try the [Azure pricing calculator](https://azure.com/e/3987c81282c84410b
 
 ---
 
-### Deploy to Azure with private networking
+## Deploy to Azure with private networking
 
 To demonstrate enhanced security for production deployments, this project supports deploying with a virtual network (VNet) configuration that restricts public access to Azure resources.
 

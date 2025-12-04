@@ -15,6 +15,7 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+from starlette.responses import JSONResponse
 
 try:
     from opentelemetry_middleware import OpenTelemetryMiddleware
@@ -62,6 +63,21 @@ logger.info(f"Connected to Cosmos DB: {AZURE_COSMOSDB_ACCOUNT}")
 
 mcp = FastMCP("Expenses Tracker")
 mcp.add_middleware(OpenTelemetryMiddleware("ExpensesMCP"))
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(_request):
+    """
+    Health check endpoint for service availability.
+
+    This endpoint is used by Azure Container Apps health probes to verify that the service is running.
+    Returns a JSON response with the following format:
+        {
+            "status": "healthy",
+            "service": "mcp-server"
+        }
+    """
+    return JSONResponse({"status": "healthy", "service": "mcp-server"})
 
 
 class PaymentMethod(Enum):

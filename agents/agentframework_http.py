@@ -20,6 +20,7 @@ logger = logging.getLogger("agentframework_mcp_http")
 load_dotenv(override=True)
 
 # Constants
+RUNNING_IN_PRODUCTION = os.getenv("RUNNING_IN_PRODUCTION", "false").lower() == "true"
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8000/mcp/")
 
 # Configure chat client based on API_HOST
@@ -68,6 +69,11 @@ async def http_mcp_example() -> None:
         user_query = "yesterday I bought a laptop for $1200 using my visa."
         result = await agent.run(user_query, tools=mcp_server)
         print(result)
+
+        # Keep the worker alive in production
+        while RUNNING_IN_PRODUCTION:
+            await asyncio.sleep(60)
+            logger.info("Worker still running...")
 
 
 if __name__ == "__main__":

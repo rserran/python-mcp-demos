@@ -5,16 +5,13 @@ param tags object = {}
 param identityName string
 param containerAppsEnvironmentName string
 param containerRegistryName string
-param serviceName string = 'aca'
+param serviceName string = 'agent'
 param exists bool
 param openAiDeploymentName string
 param openAiEndpoint string
-param cosmosDbAccount string
-param cosmosDbDatabase string
-param cosmosDbContainer string
-param applicationInsightsConnectionString string = ''
+param mcpServerUrl string
 
-resource acaIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+resource agentIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: identityName
   location: location
 }
@@ -25,11 +22,11 @@ module app 'core/host/container-app-upsert.bicep' = {
     name: name
     location: location
     tags: union(tags, { 'azd-service-name': serviceName })
-    identityName: acaIdentity.name
+    identityName: agentIdentity.name
     exists: exists
     containerAppsEnvironmentName: containerAppsEnvironmentName
     containerRegistryName: containerRegistryName
-    ingressEnabled: true
+    ingressEnabled: false
     env: [
       {
         name: 'AZURE_OPENAI_CHAT_DEPLOYMENT'
@@ -40,36 +37,26 @@ module app 'core/host/container-app-upsert.bicep' = {
         value: openAiEndpoint
       }
       {
-        name: 'RUNNING_IN_PRODUCTION'
-        value: 'true'
+        name: 'API_HOST'
+        value: 'azure'
       }
       {
         name: 'AZURE_CLIENT_ID'
-        value: acaIdentity.properties.clientId
+        value: agentIdentity.properties.clientId
       }
       {
-        name: 'AZURE_COSMOSDB_ACCOUNT'
-        value: cosmosDbAccount
+        name: 'MCP_SERVER_URL'
+        value: mcpServerUrl
       }
       {
-        name: 'AZURE_COSMOSDB_DATABASE'
-        value: cosmosDbDatabase
-      }
-      {
-        name: 'AZURE_COSMOSDB_CONTAINER'
-        value: cosmosDbContainer
-      }
-      // We typically store sensitive values in secrets, but App Insights connection strings are not considered highly sensitive
-      {
-        name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-        value: applicationInsightsConnectionString
+        name: 'RUNNING_IN_PRODUCTION'
+        value: 'true'
       }
     ]
-    targetPort: 8000
   }
 }
 
-output identityPrincipalId string = acaIdentity.properties.principalId
+output identityPrincipalId string = agentIdentity.properties.principalId
 output name string = app.outputs.name
 output hostName string = app.outputs.hostName
 output uri string = app.outputs.uri

@@ -1,0 +1,15 @@
+.azure
+.venv
+.logfire
+.devcontainer
+infra
+
+# Common Python and development files to exclude
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.pytest_cache
+.ruff_cache
+.env
+.git

@@ -14,7 +14,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.14 /uv /uvx /bin/
 WORKDIR /code
 
 # Copy dependency files and install dependencies (for layer caching)
-# Note: We avoid --mount=type=cache since Azure Container Apps remote build doesn't support BuildKit
+# Note: We can't use --mount=type=cache since Azure Container Apps remote build doesn't support BuildKit:
+# https://github.com/Azure/acr/issues/721
 COPY uv.lock pyproject.toml ./
 RUN uv sync --locked --no-install-project
 

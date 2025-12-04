@@ -66,7 +66,17 @@ mcp.add_middleware(OpenTelemetryMiddleware("ExpensesMCP"))
 
 
 @mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+async def health_check(_request):
+    """
+    Health check endpoint for service availability.
+
+    This endpoint is used by Azure Container Apps health probes to verify that the service is running.
+    Returns a JSON response with the following format:
+        {
+            "status": "healthy",
+            "service": "mcp-server"
+        }
+    """
     return JSONResponse({"status": "healthy", "service": "mcp-server"})
 
 

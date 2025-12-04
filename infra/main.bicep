@@ -46,6 +46,12 @@ param useVnet bool = false
 @description('Flag to enable or disable public ingress')
 param usePrivateIngress bool = false
 
+@description('Flag to restrict ACR public network access (requires VPN for local image push when true)')
+param usePrivateAcr bool = false
+
+@description('Flag to restrict Log Analytics public query access for increased security')
+param usePrivateLogAnalytics bool = false
+
 var resourceToken = toLower(uniqueString(subscription().id, name, location))
 var tags = { 'azd-env-name': name }
 
@@ -152,7 +158,7 @@ module logAnalyticsWorkspace 'br/public:avm/res/operational-insights/workspace:0
     skuName: 'PerGB2018'
     dataRetention: 30
     publicNetworkAccessForIngestion: useVnet ? 'Disabled' : 'Enabled'
-    publicNetworkAccessForQuery: 'Enabled' // Keep public query access for debugging - change to 'Disabled' for more security
+    publicNetworkAccessForQuery: usePrivateLogAnalytics ? 'Disabled' : 'Enabled'
     useResourcePermissions: true
   }
 }
@@ -554,7 +560,7 @@ module monitorPrivateLinkScope 'br/public:avm/res/insights/private-link-scope:0.
     tags: tags
     accessModeSettings: {
       ingestionAccessMode: 'PrivateOnly'
-      queryAccessMode: 'Open' // Allow public queries for debugging - change to 'PrivateOnly' for more security
+      queryAccessMode: usePrivateLogAnalytics ? 'PrivateOnly' : 'Open'
     }
     scopedResources: [
       {
@@ -606,6 +612,7 @@ module containerApps 'core/host/container-apps.bicep' = {
     vnetName: useVnet ? virtualNetwork!.outputs.name : ''
     subnetName: useVnet ? virtualNetwork!.outputs.subnetNames[0] : ''
     usePrivateIngress: usePrivateIngress
+    usePrivateAcr: usePrivateAcr
   }
 }
 

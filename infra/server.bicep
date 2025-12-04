@@ -74,9 +74,9 @@ module app 'core/host/container-app-upsert.bicep' = {
           path: '/health'
           port: 8000
         }
-        initialDelaySeconds: 3
+        initialDelaySeconds: 10
         periodSeconds: 3
-        failureThreshold: 30
+        failureThreshold: 60
       }
       {
         type: 'Readiness'

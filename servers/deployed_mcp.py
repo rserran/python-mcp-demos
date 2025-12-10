@@ -14,10 +14,7 @@ from azure.identity.aio import DefaultAzureCredential, ManagedIdentityCredential
 from azure.monitor.opentelemetry import configure_azure_monitor
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from fastmcp.server.auth import RemoteAuthProvider
-from fastmcp.server.auth.providers.jwt import JWTVerifier
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
-from pydantic import AnyHttpUrl
 from starlette.responses import JSONResponse
 
 try:
@@ -50,28 +47,8 @@ AZURE_COSMOSDB_DATABASE = os.environ["AZURE_COSMOSDB_DATABASE"]
 AZURE_COSMOSDB_CONTAINER = os.environ["AZURE_COSMOSDB_CONTAINER"]
 AZURE_CLIENT_ID = os.getenv("AZURE_CLIENT_ID", "")
 
-# Optional: Keycloak authentication (enabled if KEYCLOAK_REALM_URL is set)
-KEYCLOAK_REALM_URL = os.getenv("KEYCLOAK_REALM_URL")
-MCP_SERVER_BASE_URL = os.getenv("MCP_SERVER_BASE_URL")
-KEYCLOAK_MCP_SERVER_AUDIENCE = os.getenv("KEYCLOAK_MCP_SERVER_AUDIENCE", "mcp-server")
 
-auth = None
-if KEYCLOAK_REALM_URL and MCP_SERVER_BASE_URL:
-    token_verifier = JWTVerifier(
-        jwks_uri=f"{KEYCLOAK_REALM_URL}/protocol/openid-connect/certs",
-        issuer=KEYCLOAK_REALM_URL,
-        audience=KEYCLOAK_MCP_SERVER_AUDIENCE,
-    )
-    auth = RemoteAuthProvider(
-        token_verifier=token_verifier,
-        authorization_servers=[AnyHttpUrl(KEYCLOAK_REALM_URL)],
-        base_url=MCP_SERVER_BASE_URL,
-    )
-    logger.info(f"Keycloak auth enabled: realm={KEYCLOAK_REALM_URL}, audience={KEYCLOAK_MCP_SERVER_AUDIENCE}")
-else:
-    logger.info("No authentication configured (set KEYCLOAK_REALM_URL and MCP_SERVER_BASE_URL to enable)")
-
-# Configure Cosmos DB client and container
+# Configure Cosmos DB client and container for expenses data
 if RUNNING_IN_PRODUCTION and AZURE_CLIENT_ID:
     credential = ManagedIdentityCredential(client_id=AZURE_CLIENT_ID)
 else:
@@ -85,23 +62,8 @@ cosmos_db = cosmos_client.get_database_client(AZURE_COSMOSDB_DATABASE)
 cosmos_container = cosmos_db.get_container_client(AZURE_COSMOSDB_CONTAINER)
 logger.info(f"Connected to Cosmos DB: {AZURE_COSMOSDB_ACCOUNT}")
 
-mcp = FastMCP("Expenses Tracker", auth=auth)
-mcp.add_middleware(OpenTelemetryMiddleware("ExpensesMCP"))
-
-
-@mcp.custom_route("/health", methods=["GET"])
-async def health_check(_request):
-    """
-    Health check endpoint for service availability.
-
-    This endpoint is used by Azure Container Apps health probes to verify that the service is running.
-    Returns a JSON response with the following format:
-        {
-            "status": "healthy",
-            "service": "mcp-server"
-        }
-    """
-    return JSONResponse({"status": "healthy", "service": "mcp-server"})
+# Create the MCP server with OpenTelemetry middleware
+mcp = FastMCP("Expenses Tracker", middleware=[OpenTelemetryMiddleware("ExpensesMCP")])
 
 
 class PaymentMethod(Enum):
@@ -213,6 +175,21 @@ def analyze_spending_prompt(
 
     Use the expense data to generate actionable insights.
     """
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(_request):
+    """
+    Health check endpoint for service availability.
+
+    This endpoint is used by Azure Container Apps health probes to verify that the service is running.
+    Returns a JSON response with the following format:
+        {
+            "status": "healthy",
+            "service": "mcp-server"
+        }
+    """
+    return JSONResponse({"status": "healthy", "service": "mcp-server"})
 
 
 # ASGI application for uvicorn

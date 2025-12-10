@@ -12,12 +12,27 @@ param openAiEndpoint string
 param cosmosDbAccount string
 param cosmosDbDatabase string
 param cosmosDbContainer string
+param cosmosDbUserContainer string
+param cosmosDbOAuthContainer string
 param applicationInsightsConnectionString string = ''
 param keycloakRealmUrl string = ''
-param mcpServerBaseUrl string = ''
 param keycloakMcpServerAudience string = 'mcp-server'
+param keycloakMcpServerBaseUrl string = ''
+param entraProxyClientId string = ''
+@secure()
+param entraProxyClientSecret string = ''
+param entraProxyBaseUrl string = ''
+param tenantId string = ''
+@allowed([
+  'none'
+  'keycloak'
+  'entra_proxy'
+])
+param mcpAuthProvider string = 'none'
 
 // Base environment variables
+// Select MCP entrypoint based on configured auth (Keycloak or FastMCP Azure auth)
+var mcpEntry = (!empty(keycloakRealmUrl) || !empty(entraProxyClientId)) ? 'auth' : 'deployed'
 var baseEnv = [
   {
     name: 'AZURE_OPENAI_CHAT_DEPLOYMENT'
@@ -30,6 +45,10 @@ var baseEnv = [
   {
     name: 'RUNNING_IN_PRODUCTION'
     value: 'true'
+  }
+  {
+    name: 'MCP_AUTH_PROVIDER'
+    value: mcpAuthProvider
   }
   {
     name: 'AZURE_CLIENT_ID'
@@ -47,10 +66,22 @@ var baseEnv = [
     name: 'AZURE_COSMOSDB_CONTAINER'
     value: cosmosDbContainer
   }
+  {
+    name: 'AZURE_COSMOSDB_USER_CONTAINER'
+    value: cosmosDbUserContainer
+  }
+  {
+    name: 'AZURE_COSMOSDB_OAUTH_CONTAINER'
+    value: cosmosDbOAuthContainer
+  }
   // We typically store sensitive values in secrets, but App Insights connection strings are not considered highly sensitive
   {
     name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
     value: applicationInsightsConnectionString
+  }
+  {
+    name: 'MCP_ENTRY'
+    value: mcpEntry
   }
 ]
 
@@ -61,12 +92,40 @@ var keycloakEnv = !empty(keycloakRealmUrl) ? [
     value: keycloakRealmUrl
   }
   {
-    name: 'MCP_SERVER_BASE_URL'
-    value: mcpServerBaseUrl
-  }
-  {
     name: 'KEYCLOAK_MCP_SERVER_AUDIENCE'
     value: keycloakMcpServerAudience
+  }
+  {
+    name: 'KEYCLOAK_MCP_SERVER_BASE_URL'
+    value: keycloakMcpServerBaseUrl
+  }
+] : []
+
+// Azure/Entra ID OAuth Proxy environment variables (only added when configured)
+var entraProxyEnv = !empty(entraProxyClientId) ? [
+  {
+    name: 'ENTRA_PROXY_AZURE_CLIENT_ID'
+    value: entraProxyClientId
+  }
+  {
+    name: 'ENTRA_PROXY_AZURE_CLIENT_SECRET'
+    secretRef: 'entra-proxy-client-secret'
+  }
+  {
+    name: 'ENTRA_PROXY_MCP_SERVER_BASE_URL'
+    value: entraProxyBaseUrl
+  }
+  {
+    name: 'AZURE_TENANT_ID'
+    value: tenantId
+  }
+] : []
+
+// Secrets for sensitive values
+var entraProxySecrets = !empty(entraProxyClientSecret) ? [
+  {
+    name: 'entra-proxy-client-secret'
+    value: entraProxyClientSecret
   }
 ] : []
 
@@ -87,7 +146,8 @@ module app 'core/host/container-app-upsert.bicep' = {
     containerAppsEnvironmentName: containerAppsEnvironmentName
     containerRegistryName: containerRegistryName
     ingressEnabled: true
-    env: concat(baseEnv, keycloakEnv)
+    env: concat(baseEnv, keycloakEnv, entraProxyEnv)
+    secrets: entraProxySecrets
     targetPort: 8000
     probes: [
       {
@@ -128,3 +188,4 @@ output name string = app.outputs.name
 output hostName string = app.outputs.hostName
 output uri string = app.outputs.uri
 output imageName string = app.outputs.imageName
+output mcpEntry string = mcpEntry
